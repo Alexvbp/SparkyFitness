@@ -10,6 +10,7 @@ const moment = require('moment'); // Import moment for date manipulation
 const exerciseService = require('../services/exerciseService');
 const activityDetailsRepository = require('../models/activityDetailsRepository');
 const garminService = require('../services/garminService');
+const garminDashboardService = require('../services/garminDashboardService');
 
 router.use(express.json());
 
@@ -224,6 +225,36 @@ router.post('/sleep_data', authenticate, async (req, res, next) => {
 
         const result = await garminService.processGarminSleepData(userId, userId, sleepData, startDate, endDate);
         res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Endpoint to get Garmin dashboard data (widgets)
+router.get('/dashboard', authenticate, async (req, res, next) => {
+    try {
+        const userId = req.userId;
+        log('debug', `[garminRoutes] GET /dashboard called for user: ${userId}`);
+        const dashboardData = await garminDashboardService.getDashboardData(userId);
+        res.status(200).json(dashboardData);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Endpoint to get Garmin reports data (historical trends)
+router.get('/reports', authenticate, async (req, res, next) => {
+    try {
+        const userId = req.userId;
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: 'startDate and endDate query parameters are required.' });
+        }
+
+        log('debug', `[garminRoutes] GET /reports called for user: ${userId}, range: ${startDate} to ${endDate}`);
+        const reportsData = await garminDashboardService.getReportsData(userId, startDate, endDate);
+        res.status(200).json(reportsData);
     } catch (error) {
         next(error);
     }

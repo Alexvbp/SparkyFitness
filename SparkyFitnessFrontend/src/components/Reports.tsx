@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, ScatterChart, Scatter } from 'recharts'; // Added ScatterChart, Scatter
-import { BarChart3, TrendingUp, Activity, Dumbbell, BedDouble } from "lucide-react"; // Added Dumbbell and BedDouble
+import { BarChart3, TrendingUp, Activity, Dumbbell, BedDouble, Watch } from "lucide-react"; // Added Dumbbell, BedDouble, Watch
 import { getFastingDataRange, FastingLog } from '@/services/fastingService';
 import { FastingReport } from './reports/FastingReport';
 import { usePreferences } from "@/contexts/PreferencesContext";
@@ -18,6 +18,7 @@ import ReportsTables from "./reports/ReportsTables";
 import ExerciseReportsDashboard from "./reports/ExerciseReportsDashboard"; // Import ExerciseReportsDashboard
 import SleepReport from "./reports/SleepReport"; // Import SleepReport
 import StressChart from "./StressChart"; // Import StressChart
+import GarminHealthReport from "./reports/GarminHealthReport"; // Import GarminHealthReport
 import { log, debug, info, warn, error, UserLoggingLevel } from "@/utils/logging";
 import { format, parseISO, addDays } from 'date-fns'; // Import format, parseISO, addDays from date-fns
 import { calculateFoodEntryNutrition } from '@/utils/nutritionCalculations';
@@ -737,7 +738,7 @@ const Reports = () => {
         <div>{t('reports.loadingReports', "Loading reports...")}</div>
       ) : (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="charts" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               {t('reports.chartsTab', "Charts")}
@@ -753,6 +754,10 @@ const Reports = () => {
             <TabsTrigger value="sleep-analytics" className="flex items-center gap-2">
               <BedDouble className="w-4 h-4" />
               {t('reports.sleepTab', "Sleep")}
+            </TabsTrigger>
+            <TabsTrigger value="garmin-health" className="flex items-center gap-2">
+              <Watch className="w-4 h-4" />
+              {t('reports.garminHealthTab', "Garmin")}
             </TabsTrigger>
             <TabsTrigger value="table" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -857,6 +862,10 @@ const Reports = () => {
 
           <TabsContent value="sleep-analytics" className="space-y-6">
             <SleepReport startDate={startDate} endDate={endDate} />
+          </TabsContent>
+
+          <TabsContent value="garmin-health" className="space-y-6">
+            <GarminHealthReport startDate={startDate} endDate={endDate} />
           </TabsContent>
 
           <TabsContent value="stress-analytics" className="space-y-6">

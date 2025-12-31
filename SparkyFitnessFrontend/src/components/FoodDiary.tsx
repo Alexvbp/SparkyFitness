@@ -48,7 +48,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { PresetExercise, WorkoutPreset } from "@/types/workout";
 import AddExerciseDialog from "./AddExerciseDialog";
 import AddWorkoutPresetDialog from "./AddWorkoutPresetDialog";
-
+import GarminDailyWidgets from "./GarminDailyWidgets";
 
 import { customNutrientService } from "@/services/customNutrientService"; // Add import
 import { UserCustomNutrient } from "@/types/customNutrient"; // Add import
@@ -802,6 +802,9 @@ const FoodDiary = ({
           </div>
         </CardHeader>
       </Card>
+
+      {/* Garmin Daily Widgets */}
+      <GarminDailyWidgets />
 
       {/* Top Controls Section */}
       {goals && (
