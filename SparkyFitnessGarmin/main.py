@@ -116,8 +116,8 @@ def safe_convert(value, conversion_func):
     return conversion_func(value) if value is not None else None
 
 def grams_to_kg(g):
-    """Convert grams to kilograms."""
-    return g / 1000.0
+    """Convert grams to kilograms, rounded to 1 decimal place."""
+    return round(g / 1000.0, 1)
 
 def meters_to_km(m):
     """Convert meters to kilometers."""
@@ -460,9 +460,6 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 except Exception as e:
                     logger.warning(f"Could not retrieve sleep data for {current_date}: {e}")
 
-                except Exception as e:
-                    logger.warning(f"Could not retrieve sleep data for {current_date}: {e}")
-
             # Stress
             if "stress" in metric_types_to_fetch:
                 try:
@@ -523,7 +520,7 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 try:
                     spo2_data = garmin.get_spo2_data(current_date)
                     if spo2_data:
-                        health_data["spo2"].append({"date": current_date, "average_spo2": spo2_data.get("avgSpO2")})
+                        health_data["spo2"].append({"date": current_date, "average_spo2": spo2_data.get("avgSpO2"), "value": spo2_data.get("avgSpO2")})
                 except Exception as e:
                     logger.warning(f"Could not retrieve SPO2 data for {current_date}: {e}")
 
@@ -540,8 +537,25 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
             if "training_readiness" in metric_types_to_fetch:
                 try:
                     training_readiness_data = garmin.get_training_readiness(current_date)
+                    logger.debug(f"Raw training readiness data for {current_date}: {training_readiness_data}")
+                    logger.debug(f"Training readiness type: {type(training_readiness_data)}")
+
+                    score = None
+                    # Handle different response formats
                     if training_readiness_data:
-                        health_data["training_readiness"].append({"date": current_date, "training_readiness_score": training_readiness_data.get("score")})
+                        if isinstance(training_readiness_data, list) and len(training_readiness_data) > 0:
+                            # API returns a list
+                            score = training_readiness_data[0].get("score")
+                            logger.debug(f"Got training readiness score from list: {score}")
+                        elif isinstance(training_readiness_data, dict):
+                            # API might return a dict directly
+                            score = training_readiness_data.get("score") or training_readiness_data.get("trainingReadinessScore")
+                            logger.debug(f"Got training readiness score from dict: {score}")
+
+                    if score is not None:
+                        health_data["training_readiness"].append({"date": current_date, "training_readiness_score": score})
+                    else:
+                        logger.debug(f"No training readiness score found for {current_date}")
                 except Exception as e:
                     logger.warning(f"Could not retrieve training readiness data for {current_date}: {e}")
 
@@ -559,7 +573,7 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 try:
                     max_metrics_data = garmin.get_max_metrics(current_date)
                     if max_metrics_data:
-                        health_data["max_metrics"].append({"date": current_date, "vo2_max": max_metrics_data.get("vo2Max")})
+                        health_data["max_metrics"].append({"date": current_date, "vo2_max": max_metrics_data.get("generic", {}).get("vo2MaxPreciseValue") or max_metrics_data.get("vo2Max")})
                 except Exception as e:
                     logger.warning(f"Could not retrieve max metrics data for {current_date}: {e}")
 
@@ -583,7 +597,7 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 try:
                     endurance_score_data = garmin.get_endurance_score(current_date, current_date)
                     if endurance_score_data:
-                        health_data["endurance_score"].append({"date": current_date, "score": endurance_score_data.get("score")})
+                        health_data["endurance_score"].append({"date": current_date, "endurance_score": endurance_score_data.get("overallScore") or endurance_score_data.get("score")})
                 except Exception as e:
                     logger.warning(f"Could not retrieve endurance score data for {current_date}: {e}")
 
@@ -592,7 +606,7 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 try:
                     hill_score_data = garmin.get_hill_score(current_date, current_date)
                     if hill_score_data:
-                        health_data["hill_score"].append({"date": current_date, "overall": hill_score_data.get("overall")})
+                        health_data["hill_score"].append({"date": current_date, "hill_score": hill_score_data.get("overallScore") or hill_score_data.get("overall")})
                 except Exception as e:
                     logger.warning(f"Could not retrieve hill score data for {current_date}: {e}")
 
@@ -625,22 +639,52 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                 except Exception as e:
                     logger.warning(f"Could not retrieve blood pressure data for {current_date}: {e}")
 
-            # Body Battery
+            # Body Battery - use get_user_summary for complete data including current/highest/lowest
             if "body_battery" in metric_types_to_fetch:
                 try:
-                    body_battery_data = garmin.get_body_battery(current_date, current_date)
-                    if body_battery_data and isinstance(body_battery_data, list) and len(body_battery_data) > 0:
-                        for bb_entry in body_battery_data:
-                            health_data["body_battery"].append({
-                                "date": current_date,
-                                "highest": bb_entry.get("highest"),
-                                "lowest": bb_entry.get("lowest"),
-                                "atWake": bb_entry.get("atWake"),
-                                "charged": bb_entry.get("charged"),
-                                "drained": bb_entry.get("drained")
-                            })
+                    # First try get_user_summary which includes all body battery values
+                    user_summary = garmin.get_user_summary(current_date)
+                    logger.debug(f"User summary for {current_date} (body battery fields): "
+                                f"mostRecent={user_summary.get('bodyBatteryMostRecentValue')}, "
+                                f"highest={user_summary.get('bodyBatteryHighestValue')}, "
+                                f"lowest={user_summary.get('bodyBatteryLowestValue')}, "
+                                f"charged={user_summary.get('bodyBatteryChargedValue')}, "
+                                f"drained={user_summary.get('bodyBatteryDrainedValue')}")
+
+                    bb_most_recent = user_summary.get("bodyBatteryMostRecentValue")
+                    bb_highest = user_summary.get("bodyBatteryHighestValue")
+                    bb_lowest = user_summary.get("bodyBatteryLowestValue")
+                    bb_charged = user_summary.get("bodyBatteryChargedValue")
+                    bb_drained = user_summary.get("bodyBatteryDrainedValue")
+
+                    # Only add if we have at least some body battery data
+                    if any(v is not None for v in [bb_most_recent, bb_highest, bb_lowest, bb_charged, bb_drained]):
+                        health_data["body_battery"].append({
+                            "date": current_date,
+                            "body_battery_most_recent": bb_most_recent,
+                            "body_battery_highest": bb_highest,
+                            "body_battery_lowest": bb_lowest,
+                            "body_battery_charged": bb_charged,
+                            "body_battery_drained": bb_drained
+                        })
                 except Exception as e:
-                    logger.warning(f"Could not retrieve body battery data for {current_date}: {e}")
+                    logger.warning(f"Could not retrieve body battery data from user summary for {current_date}: {e}")
+                    # Fallback to get_body_battery if user_summary fails
+                    try:
+                        body_battery_data = garmin.get_body_battery(current_date, current_date)
+                        logger.debug(f"Fallback body battery data for {current_date}: {body_battery_data}")
+                        if body_battery_data and isinstance(body_battery_data, list) and len(body_battery_data) > 0:
+                            for bb_entry in body_battery_data:
+                                health_data["body_battery"].append({
+                                    "date": current_date,
+                                    "body_battery_highest": bb_entry.get("highest"),
+                                    "body_battery_lowest": bb_entry.get("lowest"),
+                                    "body_battery_at_wake": bb_entry.get("atWake"),
+                                    "body_battery_charged": bb_entry.get("charged"),
+                                    "body_battery_drained": bb_entry.get("drained")
+                                })
+                    except Exception as e2:
+                        logger.warning(f"Could not retrieve body battery data for {current_date}: {e2}")
 
             # Menstrual Data
             if "menstrual_data" in metric_types_to_fetch:
@@ -672,8 +716,8 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
                                 "body_fat_percentage": entry.get("bodyFat"),
                                 "bmi": entry.get("bmi"),
                                 "body_water_percentage": entry.get("bodyWater"),
-                                "bone_mass": entry.get("boneMass"),
-                                "muscle_mass": entry.get("muscleMass")
+                                "bone_mass": safe_convert(entry.get("boneMass"), grams_to_kg),
+                                "muscle_mass": safe_convert(entry.get("muscleMass"), grams_to_kg)
                             })
                 except Exception as e:
                     logger.warning(f"Could not retrieve body composition data for {current_date}: {e}")
@@ -725,12 +769,9 @@ async def get_health_and_wellness(request_data: HealthAndWellnessRequest):
         # Further filter to remove null or empty values before returning
         final_health_data = {k: v for k, v in cleaned_health_data.items() if v} # Filter out empty lists
         
-        # Save data to local file if GARMIN_DATA_SOURCE is not "local"
-        _save_to_local_file(filename, {"user_id": user_id, "start_date": start_date, "end_date": end_date, "data": final_health_data})
-
         logger.debug(f"Final health data being returned: {final_health_data}")
         logger.info(f"Successfully retrieved and cleaned health and wellness data for user {user_id} from {start_date} to {end_date}. Data: {final_health_data}")
-        
+
         # Save data to local file if GARMIN_DATA_SOURCE is not "local"
         _save_to_local_file(filename, {"user_id": user_id, "start_date": start_date, "end_date": end_date, "data": final_health_data})
 

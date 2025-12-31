@@ -62,6 +62,22 @@ interface NutrientPreference {
   visible_nutrients: string[];
 }
 
+interface GarminReportCards {
+  recovery: boolean;
+  heartHealth: boolean;
+  stress: boolean;
+  fitness: boolean;
+  activity: boolean;
+}
+
+const DEFAULT_GARMIN_REPORT_CARDS: GarminReportCards = {
+  recovery: true,
+  heartHealth: true,
+  stress: true,
+  fitness: true,
+  activity: true,
+};
+
 interface PreferencesContextType {
   weightUnit: 'kg' | 'lbs';
   measurementUnit: 'cm' | 'inches';
@@ -86,6 +102,7 @@ interface PreferencesContextType {
   vitaminCalculationAlgorithm: VitaminCalculationAlgorithm;
   sugarCalculationAlgorithm: SugarCalculationAlgorithm;
   selectedDiet: string;
+  garminReportCards: GarminReportCards;
   setWeightUnit: (unit: 'kg' | 'lbs') => void;
   setMeasurementUnit: (unit: 'cm' | 'inches') => void;
   setDistanceUnit: (unit: 'km' | 'miles') => void; // Add setter for distance unit
@@ -108,6 +125,7 @@ interface PreferencesContextType {
   setVitaminCalculationAlgorithm: (algorithm: VitaminCalculationAlgorithm) => void;
   setSugarCalculationAlgorithm: (algorithm: SugarCalculationAlgorithm) => void;
   setSelectedDiet: (diet: string) => void;
+  setGarminReportCards: (cards: GarminReportCards) => void;
   convertWeight: (value: number, from: 'kg' | 'lbs', to: 'kg' | 'lbs') => number;
   convertMeasurement: (value: number, from: 'cm' | 'inches', to: 'cm' | 'inches') => number;
   convertDistance: (value: number, from: 'km' | 'miles', to: 'km' | 'miles') => number; // Add distance converter
@@ -121,6 +139,8 @@ interface PreferencesContextType {
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
+
+export type { GarminReportCards };
 
 export const usePreferences = () => {
   const context = useContext(PreferencesContext);
@@ -155,6 +175,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [vitaminCalculationAlgorithm, setVitaminCalculationAlgorithmState] = useState<VitaminCalculationAlgorithm>(VitaminCalculationAlgorithm.RDA_STANDARD);
   const [sugarCalculationAlgorithm, setSugarCalculationAlgorithmState] = useState<SugarCalculationAlgorithm>(SugarCalculationAlgorithm.WHO_GUIDELINES);
   const [selectedDiet, setSelectedDietState] = useState<string>('balanced');
+  const [garminReportCards, setGarminReportCardsState] = useState<GarminReportCards>(DEFAULT_GARMIN_REPORT_CARDS);
 
   // Log initial state
   useEffect(() => {
@@ -244,6 +265,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setVitaminCalculationAlgorithmState((data.vitamin_calculation_algorithm as VitaminCalculationAlgorithm) || VitaminCalculationAlgorithm.RDA_STANDARD);
         setSugarCalculationAlgorithmState((data.sugar_calculation_algorithm as SugarCalculationAlgorithm) || SugarCalculationAlgorithm.WHO_GUIDELINES);
         setSelectedDietState(data.selected_diet || 'balanced');
+        setGarminReportCardsState(data.garmin_report_cards || DEFAULT_GARMIN_REPORT_CARDS);
         info(loggingLevel, 'PreferencesContext: Preferences states updated from database.');
       } else {
         info(loggingLevel, 'PreferencesContext: No preferences found, creating default preferences.');
@@ -294,6 +316,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
         calorie_goal_adjustment_mode: 'dynamic', // Add default for new preference
         energy_unit: 'kcal', // Add default energy unit
         selected_diet: 'balanced', // Add default diet
+        garmin_report_cards: DEFAULT_GARMIN_REPORT_CARDS, // Add default Garmin report cards
       };
 
 
@@ -340,6 +363,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
     vitamin_calculation_algorithm: VitaminCalculationAlgorithm;
     sugar_calculation_algorithm: SugarCalculationAlgorithm;
     selected_diet: string;
+    garmin_report_cards: GarminReportCards;
   }>) => {
     debug(loggingLevel, "PreferencesProvider: Attempting to update preferences with:", updates);
     if (!user) {
@@ -590,6 +614,12 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
     saveAllPreferences({ energyUnit: unit }); // Persist the change
   };
 
+  const setGarminReportCards = (cards: GarminReportCards) => {
+    info(loggingLevel, "PreferencesProvider: Setting Garmin report cards to:", cards);
+    setGarminReportCardsState(cards);
+    saveAllPreferences({ garminReportCards: cards }); // Persist the change
+  };
+
   const saveAllPreferences = async (newPrefs?: Partial<PreferencesContextType>) => {
     info(loggingLevel, "PreferencesProvider: Saving all preferences to backend.");
 
@@ -616,6 +646,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       vitamin_calculation_algorithm: newPrefs?.vitaminCalculationAlgorithm ?? vitaminCalculationAlgorithm,
       sugar_calculation_algorithm: newPrefs?.sugarCalculationAlgorithm ?? sugarCalculationAlgorithm,
       selected_diet: newPrefs?.selectedDiet ?? selectedDiet, // Include selected diet preference
+      garmin_report_cards: newPrefs?.garminReportCards ?? garminReportCards, // Include Garmin report cards preference
     };
 
     try {
@@ -690,6 +721,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       vitaminCalculationAlgorithm,
       sugarCalculationAlgorithm,
       selectedDiet,
+      garminReportCards,
       setBmrAlgorithm: setBmrAlgorithmState,
       setBodyFatAlgorithm: setBodyFatAlgorithmState,
       setIncludeBmrInNetCalories: setIncludeBmrInNetCaloriesState,
@@ -698,6 +730,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setVitaminCalculationAlgorithm: setVitaminCalculationAlgorithmState,
       setSugarCalculationAlgorithm: setSugarCalculationAlgorithmState,
       setSelectedDiet: setSelectedDietState,
+      setGarminReportCards,
       convertWeight,
       convertMeasurement,
       convertDistance, // Expose convertDistance

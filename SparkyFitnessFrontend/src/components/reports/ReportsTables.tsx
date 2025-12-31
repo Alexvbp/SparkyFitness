@@ -556,8 +556,31 @@ const ReportsTables = ({
         </CardContent>
       </Card>
 
-      {/* Custom Measurements Tables */}
-      {customCategories.map((category) => {
+      {/* Custom Measurements Tables - filter out Garmin-synced categories */}
+      {customCategories.filter(category => {
+        // Garmin-synced categories are shown in Garmin Health Report
+        const garminCategories = [
+          // Body Battery
+          'Body Battery Current', 'Body Battery Highest', 'Body Battery Lowest',
+          'Body Battery At Wake', 'Body Battery Charged', 'Body Battery Drained',
+          // Recovery & Fitness
+          'Training Readiness Score', 'Average Overnight HRV', 'Resting Heart Rate',
+          'Average SpO2', 'Average Respiration Rate', 'VO2 Max', 'Endurance Score',
+          'Hill Score', 'Training Status', 'Lactate Threshold HR',
+          // Stress
+          'Stress Level', 'Stress Percentage Low', 'Stress Percentage Medium', 'Stress Percentage High',
+          'Stress Duration Total', 'Stress Duration Rest', 'Stress Duration Activity',
+          'Stress Duration Uncategorized', 'Stress Duration Low', 'Stress Duration Medium', 'Stress Duration High',
+          // Activity
+          'Total Intensity Minutes', 'Total Distance', 'Floors Ascended', 'Floors Descended',
+          'Highly Active Minutes', 'Active Minutes', 'Sedentary Minutes',
+          // Body Composition
+          'BMI', 'Body Water Percentage', 'Bone Mass', 'Muscle Mass', 'Visceral Fat Level',
+          // Other
+          'Sleep Duration', '5K Race Prediction', 'Blood Pressure'
+        ];
+        return !garminCategories.includes(category.name);
+      }).map((category) => {
         const data = customMeasurementsData[category.id] || [];
         // Sort by timestamp descending (latest first)
         debug(loggingLevel, `ReportsTables: Sorting custom measurement data for category: ${category.name}.`);

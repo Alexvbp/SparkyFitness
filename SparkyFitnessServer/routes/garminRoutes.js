@@ -71,6 +71,30 @@ router.post('/sync/health_and_wellness', authenticate, async (req, res, next) =>
         const healthWellnessData = await garminConnectService.syncGarminHealthAndWellness(userId, startDate, endDate, metricTypes);
         log('debug', `Raw healthWellnessData from Garmin microservice for user ${userId} from ${startDate} to ${endDate}:`, healthWellnessData);
 
+        // ===== DIAGNOSTIC LOGGING: Show what metrics are available from Garmin =====
+        if (healthWellnessData.data) {
+            const availableMetrics = Object.keys(healthWellnessData.data);
+            log('info', `[GARMIN SYNC DIAGNOSTIC] Available metric categories from Garmin: ${availableMetrics.join(', ')}`);
+
+            for (const metricKey of availableMetrics) {
+                const metricData = healthWellnessData.data[metricKey];
+                if (Array.isArray(metricData)) {
+                    log('info', `[GARMIN SYNC DIAGNOSTIC] Metric '${metricKey}': ${metricData.length} entries`);
+                    if (metricData.length > 0) {
+                        const sampleEntry = metricData[0];
+                        const sampleFields = Object.keys(sampleEntry).filter(k => k !== 'date');
+                        log('info', `[GARMIN SYNC DIAGNOSTIC] Metric '${metricKey}' fields: ${sampleFields.join(', ')}`);
+                        log('debug', `[GARMIN SYNC DIAGNOSTIC] Metric '${metricKey}' sample entry:`, sampleEntry);
+                    }
+                } else {
+                    log('info', `[GARMIN SYNC DIAGNOSTIC] Metric '${metricKey}': not an array, type=${typeof metricData}`);
+                }
+            }
+        } else {
+            log('warn', `[GARMIN SYNC DIAGNOSTIC] No data property in healthWellnessData`);
+        }
+        // ===== END DIAGNOSTIC LOGGING =====
+
         // Process the raw healthWellnessData using garminService
         // This will handle storing raw stress data and derived mood
         const processedGarminHealthData = await garminService.processGarminHealthAndWellnessData(userId, userId, healthWellnessData.data, startDate, endDate);
@@ -78,9 +102,20 @@ router.post('/sync/health_and_wellness', authenticate, async (req, res, next) =>
         // Existing processing for other metrics (if any)
         const processedHealthData = [];
 
+        // ===== DIAGNOSTIC: Track mapping hits and misses =====
+        const mappingDiagnostics = {
+            mapped: {},     // { fieldName: count }
+            unmapped: {},   // { fieldName: count }
+            skipped: []     // fields explicitly skipped
+        };
+        // ===== END DIAGNOSTIC =====
+
         for (const metric in healthWellnessData.data) {
             // Skip stress as it's handled by processGarminHealthAndWellnessData
-            if (metric === 'stress') continue;
+            if (metric === 'stress') {
+                mappingDiagnostics.skipped.push('stress (handled separately)');
+                continue;
+            }
 
             const dailyEntries = healthWellnessData.data[metric];
             if (Array.isArray(dailyEntries)) {
@@ -112,17 +147,76 @@ router.post('/sync/health_and_wellness', authenticate, async (req, res, next) =>
                                 dataType: mapping.dataType,
                                 measurementType: mapping.measurementType
                             });
+
+                            // ===== DIAGNOSTIC: Track successful mapping =====
+                            const mappingKey = `${metric}.${key} -> ${type}`;
+                            mappingDiagnostics.mapped[mappingKey] = (mappingDiagnostics.mapped[mappingKey] || 0) + 1;
+                            // ===== END DIAGNOSTIC =====
+                        } else {
+                            // ===== DIAGNOSTIC: Track unmapped fields =====
+                            const unmappedKey = `${metric}.${key}`;
+                            mappingDiagnostics.unmapped[unmappedKey] = (mappingDiagnostics.unmapped[unmappedKey] || 0) + 1;
+                            // ===== END DIAGNOSTIC =====
                         }
                     }
                 }
             }
         }
 
+        // ===== DIAGNOSTIC: Log mapping results =====
+        log('info', `[GARMIN SYNC DIAGNOSTIC] ===== MAPPING RESULTS =====`);
+        log('info', `[GARMIN SYNC DIAGNOSTIC] Skipped metrics: ${mappingDiagnostics.skipped.join(', ') || 'none'}`);
+
+        const mappedKeys = Object.keys(mappingDiagnostics.mapped);
+        if (mappedKeys.length > 0) {
+            log('info', `[GARMIN SYNC DIAGNOSTIC] Successfully mapped fields (${mappedKeys.length}):`);
+            for (const key of mappedKeys) {
+                log('info', `[GARMIN SYNC DIAGNOSTIC]   ✓ ${key}: ${mappingDiagnostics.mapped[key]} entries`);
+            }
+        } else {
+            log('warn', `[GARMIN SYNC DIAGNOSTIC] No fields were successfully mapped!`);
+        }
+
+        const unmappedKeys = Object.keys(mappingDiagnostics.unmapped);
+        if (unmappedKeys.length > 0) {
+            log('warn', `[GARMIN SYNC DIAGNOSTIC] Unmapped fields (${unmappedKeys.length}) - these need mappings in garminMeasurementMapping.js:`);
+            for (const key of unmappedKeys) {
+                log('warn', `[GARMIN SYNC DIAGNOSTIC]   ✗ ${key}: ${mappingDiagnostics.unmapped[key]} entries ignored`);
+            }
+        }
+        log('info', `[GARMIN SYNC DIAGNOSTIC] Total measurements to save: ${processedHealthData.length}`);
+        log('info', `[GARMIN SYNC DIAGNOSTIC] ===== END MAPPING RESULTS =====`);
+        // ===== END DIAGNOSTIC =====
+
         log('debug', `Processed health data for measurementService:`, processedHealthData);
 
         let measurementServiceResult = {};
         if (processedHealthData.length > 0) {
             measurementServiceResult = await measurementService.processHealthData(processedHealthData, userId, userId);
+
+            // ===== DIAGNOSTIC: Log what measurementService actually saved =====
+            if (measurementServiceResult.processed && measurementServiceResult.processed.length > 0) {
+                log('info', `[GARMIN SYNC DIAGNOSTIC] measurementService saved ${measurementServiceResult.processed.length} entries successfully`);
+
+                // Group by type for summary
+                const savedByType = {};
+                for (const item of measurementServiceResult.processed) {
+                    const typeName = item.type || 'unknown';
+                    savedByType[typeName] = (savedByType[typeName] || 0) + 1;
+                }
+                for (const [typeName, count] of Object.entries(savedByType)) {
+                    log('info', `[GARMIN SYNC DIAGNOSTIC]   ✓ Saved ${count}x '${typeName}'`);
+                }
+            }
+            if (measurementServiceResult.errors && measurementServiceResult.errors.length > 0) {
+                log('error', `[GARMIN SYNC DIAGNOSTIC] measurementService had ${measurementServiceResult.errors.length} errors:`);
+                for (const err of measurementServiceResult.errors) {
+                    log('error', `[GARMIN SYNC DIAGNOSTIC]   ✗ ${err.error}`);
+                }
+            }
+            // ===== END DIAGNOSTIC =====
+        } else {
+            log('warn', `[GARMIN SYNC DIAGNOSTIC] No processed health data to save - processedHealthData array is empty`);
         }
 
         let processedSleepData = {};

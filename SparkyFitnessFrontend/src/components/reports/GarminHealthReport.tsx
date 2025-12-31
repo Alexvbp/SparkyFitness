@@ -18,7 +18,7 @@ interface GarminHealthReportProps {
 const GarminHealthReport = ({ startDate, endDate }: GarminHealthReportProps) => {
   const { t } = useTranslation();
   const { activeUserId } = useActiveUser();
-  const { loggingLevel } = usePreferences();
+  const { loggingLevel, garminReportCards } = usePreferences();
   const [data, setData] = useState<GarminReportsData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -82,37 +82,62 @@ const GarminHealthReport = ({ startDate, endDate }: GarminHealthReportProps) => 
     );
   }
 
+  // Check if all cards are disabled
+  const allCardsDisabled = !garminReportCards.recovery && !garminReportCards.heartHealth &&
+    !garminReportCards.stress && !garminReportCards.fitness && !garminReportCards.activity;
+
+  if (allCardsDisabled) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p>{t("garmin.noCardsEnabled", "No Garmin cards are enabled.")}</p>
+        <p className="text-sm mt-2">
+          {t("garmin.enableCardsHint", "Enable cards in Settings to view Garmin health data.")}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <GarminRecoveryCard
-        bodyBattery={data.recovery?.bodyBattery ?? []}
-        hrv={data.recovery?.hrv ?? []}
-        trainingReadiness={data.recovery?.trainingReadiness ?? []}
-      />
+      {garminReportCards.recovery && (
+        <GarminRecoveryCard
+          bodyBattery={data.recovery?.bodyBattery ?? []}
+          hrv={data.recovery?.hrv ?? []}
+          trainingReadiness={data.recovery?.trainingReadiness ?? []}
+        />
+      )}
 
-      <GarminHeartHealthCard
-        restingHr={data.heartHealth?.restingHr ?? []}
-        spo2={data.heartHealth?.spo2 ?? []}
-        respiration={data.heartHealth?.respiration ?? []}
-      />
+      {garminReportCards.heartHealth && (
+        <GarminHeartHealthCard
+          restingHr={data.heartHealth?.restingHr ?? []}
+          spo2={data.heartHealth?.spo2 ?? []}
+          respiration={data.heartHealth?.respiration ?? []}
+        />
+      )}
 
-      <GarminStressCard
-        level={data.stress?.level ?? []}
-        distribution={data.stress?.distribution ?? null}
-      />
+      {garminReportCards.stress && (
+        <GarminStressCard
+          level={data.stress?.level ?? []}
+          distribution={data.stress?.distribution ?? null}
+        />
+      )}
 
-      <GarminFitnessCard
-        vo2Max={data.fitness?.vo2Max ?? []}
-        enduranceScore={data.fitness?.enduranceScore ?? null}
-        hillScore={data.fitness?.hillScore ?? null}
-        trainingStatus={data.fitness?.trainingStatus ?? null}
-      />
+      {garminReportCards.fitness && (
+        <GarminFitnessCard
+          vo2Max={data.fitness?.vo2Max ?? []}
+          enduranceScore={data.fitness?.enduranceScore ?? null}
+          hillScore={data.fitness?.hillScore ?? null}
+          trainingStatus={data.fitness?.trainingStatus ?? null}
+        />
+      )}
 
-      <GarminActivityCard
-        activeMinutes={data.activity?.activeMinutes ?? []}
-        distance={data.activity?.distance ?? []}
-        floors={data.activity?.floors ?? []}
-      />
+      {garminReportCards.activity && (
+        <GarminActivityCard
+          activeMinutes={data.activity?.activeMinutes ?? []}
+          distance={data.activity?.distance ?? []}
+          floors={data.activity?.floors ?? []}
+        />
+      )}
     </div>
   );
 };

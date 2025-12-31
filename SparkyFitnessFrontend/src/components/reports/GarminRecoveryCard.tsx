@@ -82,7 +82,7 @@ const GarminRecoveryCard = ({ bodyBattery, hrv, trainingReadiness }: GarminRecov
                 <Line
                   type="monotone"
                   dataKey="trainingReadiness"
-                  name={t("garmin.trainingReadiness", "Readiness")}
+                  name={t("garmin.trainingReadiness", "Training Readiness")}
                   stroke="#f59e0b"
                   strokeWidth={2}
                   dot={false}

@@ -24,6 +24,7 @@ const garminMeasurementMapping = {
     'hill_score': { targetType: 'custom', name: 'Hill Score', dataType: 'numeric', measurementType: 'N/A', frequency: 'Daily' },
     'race_prediction_5k': { targetType: 'custom', name: '5K Race Prediction', dataType: 'numeric', measurementType: 'seconds', frequency: 'Daily' },
     'blood_pressure': { targetType: 'custom', name: 'Blood Pressure', dataType: 'text', measurementType: 'mmHg/bpm', frequency: 'Daily' },
+    'body_battery_most_recent': { targetType: 'custom', name: 'Body Battery Current', dataType: 'numeric', measurementType: 'N/A', frequency: 'Daily' },
     'body_battery_highest': { targetType: 'custom', name: 'Body Battery Highest', dataType: 'numeric', measurementType: 'N/A', frequency: 'Daily' },
     'body_battery_lowest': { targetType: 'custom', name: 'Body Battery Lowest', dataType: 'numeric', measurementType: 'N/A', frequency: 'Daily' },
     'body_battery_at_wake': { targetType: 'custom', name: 'Body Battery At Wake', dataType: 'numeric', measurementType: 'N/A', frequency: 'Daily' },

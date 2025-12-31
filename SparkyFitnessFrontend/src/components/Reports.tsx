@@ -778,7 +778,30 @@ const Reports = () => {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">{t('reports.customMeasurementsTitle', "Custom Measurements")}</h3>
                 <div className="space-y-4">
-                  {customCategories.filter(c => c.data_type === 'numeric').map((category) => {
+                  {customCategories.filter(c => {
+                    // Filter out Garmin-synced categories (they're shown in Garmin Health Report)
+                    const garminCategories = [
+                      // Body Battery
+                      'Body Battery Current', 'Body Battery Highest', 'Body Battery Lowest',
+                      'Body Battery At Wake', 'Body Battery Charged', 'Body Battery Drained',
+                      // Recovery & Fitness
+                      'Training Readiness Score', 'Average Overnight HRV', 'Resting Heart Rate',
+                      'Average SpO2', 'Average Respiration Rate', 'VO2 Max', 'Endurance Score',
+                      'Hill Score', 'Training Status', 'Lactate Threshold HR',
+                      // Stress
+                      'Stress Level', 'Stress Percentage Low', 'Stress Percentage Medium', 'Stress Percentage High',
+                      'Stress Duration Total', 'Stress Duration Rest', 'Stress Duration Activity',
+                      'Stress Duration Uncategorized', 'Stress Duration Low', 'Stress Duration Medium', 'Stress Duration High',
+                      // Activity
+                      'Total Intensity Minutes', 'Total Distance', 'Floors Ascended', 'Floors Descended',
+                      'Highly Active Minutes', 'Active Minutes', 'Sedentary Minutes',
+                      // Body Composition
+                      'BMI', 'Body Water Percentage', 'Bone Mass', 'Muscle Mass', 'Visceral Fat Level',
+                      // Race Predictions
+                      '5K Race Prediction', 'Blood Pressure'
+                    ];
+                    return c.data_type === 'numeric' && !garminCategories.includes(c.name);
+                  }).map((category) => {
                     const data = customMeasurementsData[category.id] || [];
                     const chartData = formatCustomChartData(category, data);
 

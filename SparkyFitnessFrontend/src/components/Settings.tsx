@@ -10,12 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Added import
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Calendar as CalendarIcon } from "lucide-react"; // Import CalendarIcon
 import { Calendar } from "@/components/ui/calendar"; // Import Calendar component
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover components
-import { Save, Upload, User, Settings as SettingsIcon, Lock, Camera, ClipboardCopy, Copy, Eye, EyeOff, KeyRound, Trash2, Droplet, ListChecks, Users, Tag, Cloud, Sparkles, QrCode, Mail } from "lucide-react";
+import { Save, Upload, User, Settings as SettingsIcon, Lock, Camera, ClipboardCopy, Copy, Eye, EyeOff, KeyRound, Trash2, Droplet, ListChecks, Users, Tag, Cloud, Sparkles, QrCode, Mail, Watch } from "lucide-react";
 import { apiCall } from '@/services/api'; // Assuming a common API utility
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
@@ -25,7 +26,8 @@ import CustomCategoryManager from "./CustomCategoryManager";
 import { CustomCategory } from "@/services/customCategoryService";
 import ExternalProviderSettings from "./ExternalProviderSettings"; // Import ExternalProviderSettings
 import GarminConnectSettings from "./GarminConnectSettings"; // Import GarminConnectSettings
-import { usePreferences } from "@/contexts/PreferencesContext"; // Import usePreferences
+import { usePreferences, GarminReportCards } from "@/contexts/PreferencesContext"; // Import usePreferences
+import { getGarminDashboard } from "@/services/garminDashboardService"; // Import for Garmin status check
 import NutrientDisplaySettings from "./NutrientDisplaySettings"; // Import NutrientDisplaySettings
 import WaterContainerManager from "./WaterContainerManager"; // Import WaterContainerManager
 import { parse } from "date-fns"; // Import parse for parsing user-entered date strings
@@ -72,7 +74,8 @@ const Settings: React.FC<SettingsProps> = ({ onShowAboutDialog }) => {
     formatDate, // Destructure formatDate
     water_display_unit, setWaterDisplayUnit,
     language, setLanguage,
-    calorieGoalAdjustmentMode, setCalorieGoalAdjustmentMode // Add new preference
+    calorieGoalAdjustmentMode, setCalorieGoalAdjustmentMode, // Add new preference
+    garminReportCards, setGarminReportCards // Garmin report card visibility
   } = usePreferences();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarObjectURL, setAvatarObjectURL] = useState<string | null>(null); // State to hold the object URL for the avatar
@@ -101,6 +104,10 @@ const Settings: React.FC<SettingsProps> = ({ onShowAboutDialog }) => {
   const [newApiKeyDescription, setNewApiKeyDescription] = useState<string>('');
   const [generatingApiKey, setGeneratingApiKey] = useState(false);
 
+  // Garmin link status for conditionally showing Garmin Reports settings
+  const [isGarminLinked, setIsGarminLinked] = useState(false);
+  const [garminLoading, setGarminLoading] = useState(true);
+
   useEffect(() => {
     if (user) {
       loadProfile();
@@ -108,8 +115,25 @@ const Settings: React.FC<SettingsProps> = ({ onShowAboutDialog }) => {
       loadCustomCategories();
       loadApiKeys(); // Load API keys
       setNewEmail(user.email || ''); // Initialize newEmail here
+      checkGarminStatus(); // Check if Garmin is linked
     }
   }, [user]); // Removed loadUserPreferencesFromContext from dependency array
+
+  const checkGarminStatus = async () => {
+    try {
+      const data = await getGarminDashboard();
+      setIsGarminLinked(data?.isLinked ?? false);
+    } catch {
+      setIsGarminLinked(false);
+    } finally {
+      setGarminLoading(false);
+    }
+  };
+
+  const handleGarminCardToggle = (card: keyof GarminReportCards, enabled: boolean) => {
+    const updatedCards = { ...garminReportCards, [card]: enabled };
+    setGarminReportCards(updatedCards);
+  };
 
   useEffect(() => {
     setLocalLoggingLevel(loggingLevel);
@@ -892,6 +916,81 @@ const Settings: React.FC<SettingsProps> = ({ onShowAboutDialog }) => {
             <Separator />
           </AccordionContent>
         </AccordionItem>
+
+        {/* Garmin Reports Settings - only show when Garmin is linked */}
+        {!garminLoading && isGarminLinked && (
+          <AccordionItem value="garmin-reports" className="border rounded-lg mb-4">
+            <AccordionTrigger
+              className="flex items-center gap-2 p-4 hover:no-underline"
+              description={t('settings.garminReports.description', 'Choose which cards to display in Garmin health reports')}
+            >
+              <Watch className="h-5 w-5" />
+              {t('settings.garminReports.title', 'Garmin Reports')}
+            </AccordionTrigger>
+            <AccordionContent className="p-4 pt-0 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t('settings.garminReports.recovery', 'Recovery')}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.garminReports.recoveryDesc', 'Body Battery, HRV, Training Readiness')}
+                  </p>
+                </div>
+                <Switch
+                  checked={garminReportCards.recovery}
+                  onCheckedChange={(checked) => handleGarminCardToggle('recovery', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t('settings.garminReports.heartHealth', 'Heart Health')}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.garminReports.heartHealthDesc', 'Resting HR, SpO2, Respiration')}
+                  </p>
+                </div>
+                <Switch
+                  checked={garminReportCards.heartHealth}
+                  onCheckedChange={(checked) => handleGarminCardToggle('heartHealth', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t('settings.garminReports.stress', 'Stress')}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.garminReports.stressDesc', 'Stress Level, Distribution')}
+                  </p>
+                </div>
+                <Switch
+                  checked={garminReportCards.stress}
+                  onCheckedChange={(checked) => handleGarminCardToggle('stress', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t('settings.garminReports.fitness', 'Fitness')}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.garminReports.fitnessDesc', 'VO2 Max, Endurance Score, Hill Score')}
+                  </p>
+                </div>
+                <Switch
+                  checked={garminReportCards.fitness}
+                  onCheckedChange={(checked) => handleGarminCardToggle('fitness', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t('settings.garminReports.activity', 'Activity')}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('settings.garminReports.activityDesc', 'Active Minutes, Distance, Floors')}
+                  </p>
+                </div>
+                <Switch
+                  checked={garminReportCards.activity}
+                  onCheckedChange={(checked) => handleGarminCardToggle('activity', checked)}
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
 
         <AccordionItem value="ai-service" className="border rounded-lg mb-4">
           <AccordionTrigger
