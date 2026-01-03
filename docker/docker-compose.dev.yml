@@ -44,6 +44,7 @@ services:
       SPARKY_FITNESS_EMAIL_PASS: ${SPARKY_FITNESS_EMAIL_PASS}
       SPARKY_FITNESS_EMAIL_FROM: ${SPARKY_FITNESS_EMAIL_FROM}
       NODE_ENV: ${NODE_ENV:-development}
+      NODE_OPTIONS: "--max-old-space-size=4096"
       GARMIN_MICROSERVICE_URL: http://sparkyfitness-garmin:8000 # Add Garmin microservice URL
     networks:
       - sparkyfitness-network
@@ -87,6 +88,36 @@ services:
     volumes:
       - ../SparkyFitnessGarmin:/app/SparkyFitnessGarmin # Mount source for live reloading
       - /app/SparkyFitnessGarmin/venv # Preserve virtual environment
+
+  # Background worker for Garmin sync jobs - runs separately from main server
+  sparkyfitness-sync-worker:
+    build:
+      context: ../SparkyFitnessServer
+      dockerfile: ../docker/Dockerfile.backend
+    command: ["node", "scripts/garmin-sync-worker.js"]
+    environment:
+      SPARKY_FITNESS_LOG_LEVEL: ${SPARKY_FITNESS_LOG_LEVEL:-INFO}
+      SPARKY_FITNESS_DB_USER: ${SPARKY_FITNESS_DB_USER:-sparky}
+      SPARKY_FITNESS_DB_HOST: sparkyfitness-db
+      SPARKY_FITNESS_DB_NAME: ${SPARKY_FITNESS_DB_NAME:-sparkyfitness_db}
+      SPARKY_FITNESS_DB_PASSWORD: ${SPARKY_FITNESS_DB_PASSWORD:-changeme_db_password}
+      SPARKY_FITNESS_DB_PORT: 5432
+      SPARKY_FITNESS_APP_DB_USER: ${SPARKY_FITNESS_APP_DB_USER:-sparky_app}
+      SPARKY_FITNESS_APP_DB_PASSWORD: ${SPARKY_FITNESS_APP_DB_PASSWORD:-changeme_app_password}
+      SPARKY_FITNESS_API_ENCRYPTION_KEY: ${SPARKY_FITNESS_API_ENCRYPTION_KEY:-changeme_replace_with_a_64_character_hex_string}
+      JWT_SECRET: ${JWT_SECRET:-changeme_replace_with_a_strong_jwt_secret}
+      NODE_ENV: ${NODE_ENV:-development}
+      NODE_OPTIONS: "--max-old-space-size=2048"
+      GARMIN_MICROSERVICE_URL: http://sparkyfitness-garmin:8000
+    networks:
+      - sparkyfitness-network
+    restart: unless-stopped
+    depends_on:
+      - sparkyfitness-db
+      - sparkyfitness-garmin
+    volumes:
+      - ../SparkyFitnessServer:/app/SparkyFitnessServer
+      - /app/SparkyFitnessServer/node_modules
 
 networks:
   sparkyfitness-network:

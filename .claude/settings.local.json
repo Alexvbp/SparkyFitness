@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker inspect:*)",
+      "Bash(docker run:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git fetch:*)",
+      "Bash(git merge-base:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(node -c:*)",
+      "Bash(pgrep:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(curl:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker ps:*)",
+      "Bash(time curl -s --max-time 5 -X POST \"http://localhost:3010/integrations/garmin/sync/historical\" )",
+      "Bash(ss:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker stats:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite build:*)",
+      "Bash(./docker/docker-helper.sh:*)"
+    ]
+  }
+}

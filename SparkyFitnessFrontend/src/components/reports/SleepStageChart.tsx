@@ -6,6 +6,7 @@ import { SleepChartData, SLEEP_STAGE_COLORS } from '@/types';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import ZoomableChart from '../ZoomableChart';
 import { useTheme } from '@/contexts/ThemeContext';
+import SleepStagePieChart from './SleepStagePieChart';
 
 interface SleepStageChartProps {
   sleepChartData: SleepChartData;
@@ -48,6 +49,11 @@ const SleepStageChart: React.FC<SleepStageChartProps> = ({ sleepChartData }) => 
         </CardContent>
       </Card>
     );
+  }
+
+  // If we don't have detailed stage timing, show a pie chart instead of the hypnogram
+  if (sleepChartData.has_detailed_stages === false) {
+    return <SleepStagePieChart sleepChartData={sleepChartData} />;
   }
 
   const sortedSegments = sleepChartData.segments
