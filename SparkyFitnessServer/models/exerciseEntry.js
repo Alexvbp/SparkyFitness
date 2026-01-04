@@ -254,8 +254,8 @@ async function createExerciseEntry(userId, entryData, createdByUserId, entrySour
            workout_plan_assignment_id, image_url, created_by_user_id,
            exercise_name, calories_per_hour, category, source, source_id, force, level, mechanic,
            equipment, primary_muscles, secondary_muscles, instructions, images,
-           distance, avg_heart_rate, exercise_preset_entry_id
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25) RETURNING id`,
+           distance, avg_heart_rate, exercise_preset_entry_id, activity_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26) RETURNING id`,
          [
            userId,
            entryData.exercise_id,
@@ -282,6 +282,7 @@ async function createExerciseEntry(userId, entryData, createdByUserId, entrySour
            entryData.distance || null, // Ensure distance is not undefined
            entryData.avg_heart_rate || null, // Ensure avg_heart_rate is not undefined
            exercisePresetEntryId, // New parameter
+           entryData.activity_id || null, // Link to structured activity
          ]
       );
       newEntryId = entryResult.rows[0].id;

@@ -50,8 +50,10 @@ const globalSettingsRoutes = require('./routes/globalSettingsRoutes');
 const versionRoutes = require('./routes/versionRoutes');
 const onboardingRoutes = require('./routes/onboardingRoutes'); // Import onboarding routes
 const customNutrientRoutes = require('./routes/customNutrientRoutes'); // Import custom nutrient routes
+const activityRoutes = require('./routes/activityRoutes'); // Import activity routes
 const { applyMigrations } = require('./utils/dbMigrations');
 const { applyRlsPolicies } = require('./utils/applyRlsPolicies');
+const { migrateActivitySamples } = require('./utils/migrateActivitySamples');
 const { grantPermissions } = require('./db/grantPermissions');
 const waterContainerRoutes = require('./routes/waterContainerRoutes');
 const backupRoutes = require('./routes/backupRoutes'); // Import backup routes
@@ -336,6 +338,7 @@ app.use('/workout-plan-templates', require('./routes/workoutPlanTemplateRoutes')
 app.use('/review', reviewRoutes);
 app.use('/onboarding', onboardingRoutes); // Add onboarding routes
 app.use('/custom-nutrients', customNutrientRoutes); // Add custom nutrient routes
+app.use('/activities', activityRoutes); // Add activity routes
 
 // Temporary debug route to log incoming requests for meal plan templates
 app.use(
@@ -468,6 +471,7 @@ const scheduleGarminSyncs = async () => {
 applyMigrations()
   .then(grantPermissions)
   .then(applyRlsPolicies)
+  .then(migrateActivitySamples)
   .then(async () => {
     // OIDC clients are now initialized on-demand, so no startup initialization is needed.
 

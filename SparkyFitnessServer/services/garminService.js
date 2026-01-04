@@ -6,6 +6,8 @@ const exercisePresetEntryRepository = require('../models/exercisePresetEntryRepo
 const workoutPresetRepository = require('../models/workoutPresetRepository'); // New import
 const measurementService = require('./measurementService'); // Import measurementService
 const moodRepository = require('../models/moodRepository'); // Import moodRepository
+const activityRepository = require('../models/activityRepository');
+const { transformGarminActivity, transformGarminLaps, transformGarminHeartRateZones, transformGarminSamples } = require('../integrations/garminconnect/garminActivityTransformer');
 
 async function processActivitiesAndWorkouts(userId, data, startDate, endDate) {
   const { activities, workouts } = data;
@@ -16,6 +18,7 @@ async function processActivitiesAndWorkouts(userId, data, startDate, endDate) {
   log('info', `[garminService] Performing comprehensive cleanup for Garmin data for user ${userId} from ${startDate} to ${endDate}.`);
   await exerciseEntryRepository.deleteExerciseEntriesByEntrySourceAndDate(userId, startDate, endDate, 'garmin');
   await exercisePresetEntryRepository.deleteExercisePresetEntriesByEntrySourceAndDate(userId, startDate, endDate, 'garmin');
+  await activityRepository.deleteActivitiesBySourceAndDateRange(userId, 'garmin', startDate, endDate);
 
   // Process Activities and Workouts
   if (activities && Array.isArray(activities)) {
@@ -420,46 +423,93 @@ async function processGarminWorkoutDefinition(userId, workoutData) {
 // Helper function to process a simple Garmin activity
 async function processGarminSimpleActivity(userId, activityData) {
   const { activity } = activityData;
-  const exerciseName = activity.activityType?.typeKey ? activity.activityType.typeKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Garmin Activity';
-  let exercise = await exerciseRepository.findExerciseByNameAndUserId(exerciseName, userId);
 
-  if (!exercise) {
-    exercise = await exerciseRepository.createExercise({
-      user_id: userId,
-      name: exerciseName,
-      category: activity.activityType?.typeKey || 'Uncategorized',
-      source: 'garmin',
-      is_custom: true,
-      shared_with_public: false,
+  try {
+    // Transform to new structured format
+    const transformedActivity = await transformGarminActivity(activityData);
+    const transformedLaps = transformGarminLaps(activityData.splits);
+    const transformedZones = transformGarminHeartRateZones(activityData.hr_in_timezones);
+
+    // Create activity in new table
+    const newActivity = await activityRepository.createActivity(userId, transformedActivity, userId);
+
+    // Create laps if available
+    if (transformedLaps.length > 0) {
+      await activityRepository.createActivityLaps(userId, newActivity.id, transformedLaps);
+    }
+
+    // Create HR zones if available
+    if (transformedZones.length > 0) {
+      await activityRepository.createActivityHeartRateZones(userId, newActivity.id, transformedZones);
+    }
+
+    // Create samples if available
+    const transformedSamples = transformGarminSamples(activityData.details);
+    if (transformedSamples.length > 0) {
+      await activityRepository.createActivitySamples(userId, newActivity.id, transformedSamples);
+      log('info', `[garminService] Created ${transformedSamples.length} samples for activity ${newActivity.id}`);
+    }
+
+    log('info', `[garminService] Created structured activity ${newActivity.id} for user ${userId}`);
+
+    // Also create exercise entry for calorie tracking compatibility
+    const exerciseName = activity.activityType?.typeKey
+      ? activity.activityType.typeKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      : 'Garmin Activity';
+
+    let exercise = await exerciseRepository.findExerciseByNameAndUserId(exerciseName, userId);
+    if (!exercise) {
+      exercise = await exerciseRepository.createExercise({
+        user_id: userId,
+        name: exerciseName,
+        category: activity.activityType?.typeKey || 'Uncategorized',
+        source: 'garmin',
+        is_custom: true,
+        shared_with_public: false,
+      });
+    }
+
+    const entryDate = activity.startTimeLocal
+      ? new Date(activity.startTimeLocal).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    const exerciseEntryData = {
+      exercise_id: exercise.id,
+      activity_id: newActivity.id,  // Link to structured activity
+      duration_minutes: activity.duration || 0, // Garmin duration is already in minutes
+      calories_burned: activity.calories || 0,
+      entry_date: entryDate,
+      notes: `Garmin Activity: ${activity.activityName} (${activity.activityType?.typeKey})`,
+      distance: activity.distance,
+      avg_heart_rate: activity.averageHR || activity.averageHeartRateInBeatsPerMinute || null,
+      source_id: activity.activityId?.toString() || null,
+    };
+
+    const newExerciseEntry = await exerciseEntryRepository.createExerciseEntry(userId, exerciseEntryData, userId, 'garmin');
+
+    // Create activity details for frontend visualization
+    // The service layer wraps this in { activity: detail_data, workout: ... }
+    // So detail_data should contain: { activity, details, splits, hr_in_timezones }
+    // Then frontend receives: { activity: { activity, details, splits, hr_in_timezones }, workout: null }
+    await activityDetailsRepository.createActivityDetail(userId, {
+      exercise_entry_id: newExerciseEntry.id,
+      provider_name: 'garmin',
+      detail_type: 'full_activity_data',
+      detail_data: {
+        activity: activityData.activity,
+        details: activityData.details || null,
+        splits: activityData.splits || null,
+        hr_in_timezones: activityData.hr_in_timezones || null,
+      },
+      created_by_user_id: userId,
     });
+
+    log('info', `[garminService] Created exercise entry ${newExerciseEntry.id} with activity details for user ${userId}`);
+
+  } catch (error) {
+    log('error', `[garminService] Error processing Garmin activity for user ${userId}:`, error);
+    throw error;
   }
-
-  const entryDate = activity.startTimeLocal ? new Date(activity.startTimeLocal).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
-
-  const exerciseEntryData = {
-    exercise_id: exercise.id,
-    duration_minutes: activity.duration || 0,
-    calories_burned: activity.calories || 0,
-    entry_date: entryDate,
-    notes: `Garmin Activity: ${activity.activityName} (${activity.activityType?.typeKey})`,
-    distance: activity.distance,
-    avg_heart_rate: activity.averageHeartRateInBeatsPerMinute || null,
-  };
-
-  const newEntry = await exerciseEntryRepository.createExerciseEntry(userId, exerciseEntryData, userId, 'garmin');
-
-  await activityDetailsRepository.createActivityDetail(userId, {
-    exercise_entry_id: newEntry.id,
-    provider_name: 'garmin',
-    detail_type: 'full_activity_data',
-    detail_data: {
-      activity: activityData.activity,
-      details: activityData.details || { activityDetailMetrics: [], metricDescriptors: [] },
-      splits: activityData.splits || { lapDTOs: [] },
-      hr_in_timezones: activityData.hr_in_timezones || [],
-    },
-    created_by_user_id: userId,
-  });
 }
 
 const sleepRepository = require('../models/sleepRepository'); // Import sleepRepository

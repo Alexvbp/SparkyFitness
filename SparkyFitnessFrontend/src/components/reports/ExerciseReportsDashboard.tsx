@@ -106,7 +106,6 @@ const ExerciseReportsDashboard: React.FC<ExerciseReportsDashboardProps> = ({
     "trainingVolumeByMuscleGroup",
     "repsVsWeightScatter",
     "setPerformance",
-    "timeUnderTension",
     "prVisualization",
   ];
 

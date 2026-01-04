@@ -62,7 +62,11 @@ BEGIN
     'sleep_entries',
     'sleep_entry_stages',
     'fasting_logs',
-        'user_custom_nutrients'
+    'user_custom_nutrients',
+    'activities',
+    'activity_laps',
+    'activity_heart_rate_zones',
+    'activity_samples'
       ]::text[]) AS table_name;
     END $$;
 
@@ -294,3 +298,94 @@ WITH CHECK (EXISTS (SELECT 1 FROM public.workout_presets wp WHERE wp.id = workou
 
 SELECT create_owner_policy('user_ignored_updates');
 SELECT create_owner_policy('fasting_logs');
+
+-- ============================================================================
+-- Activities tables policies (for Garmin/Fitbit/etc activity data)
+-- ============================================================================
+
+-- Activities table policies
+CREATE POLICY activities_select_policy ON public.activities FOR SELECT TO PUBLIC
+USING (
+    user_id = current_user_id()
+    OR EXISTS (
+        SELECT 1 FROM public.family_access fa
+        WHERE fa.owner_user_id = activities.user_id
+          AND fa.family_user_id = current_user_id()
+          AND fa.is_active = TRUE
+    )
+);
+
+CREATE POLICY activities_insert_policy ON public.activities FOR INSERT TO PUBLIC
+WITH CHECK (
+    user_id = current_user_id()
+    OR created_by_user_id = current_user_id()
+);
+
+CREATE POLICY activities_update_policy ON public.activities FOR UPDATE TO PUBLIC
+USING (user_id = current_user_id());
+
+CREATE POLICY activities_delete_policy ON public.activities FOR DELETE TO PUBLIC
+USING (user_id = current_user_id());
+
+-- Activity Laps table policies
+CREATE POLICY activity_laps_select_policy ON public.activity_laps FOR SELECT TO PUBLIC
+USING (
+    user_id = current_user_id()
+    OR EXISTS (
+        SELECT 1 FROM public.family_access fa
+        WHERE fa.owner_user_id = activity_laps.user_id
+          AND fa.family_user_id = current_user_id()
+          AND fa.is_active = TRUE
+    )
+);
+
+CREATE POLICY activity_laps_insert_policy ON public.activity_laps FOR INSERT TO PUBLIC
+WITH CHECK (user_id = current_user_id());
+
+CREATE POLICY activity_laps_update_policy ON public.activity_laps FOR UPDATE TO PUBLIC
+USING (user_id = current_user_id());
+
+CREATE POLICY activity_laps_delete_policy ON public.activity_laps FOR DELETE TO PUBLIC
+USING (user_id = current_user_id());
+
+-- Activity Heart Rate Zones table policies
+CREATE POLICY activity_hr_zones_select_policy ON public.activity_heart_rate_zones FOR SELECT TO PUBLIC
+USING (
+    user_id = current_user_id()
+    OR EXISTS (
+        SELECT 1 FROM public.family_access fa
+        WHERE fa.owner_user_id = activity_heart_rate_zones.user_id
+          AND fa.family_user_id = current_user_id()
+          AND fa.is_active = TRUE
+    )
+);
+
+CREATE POLICY activity_hr_zones_insert_policy ON public.activity_heart_rate_zones FOR INSERT TO PUBLIC
+WITH CHECK (user_id = current_user_id());
+
+CREATE POLICY activity_hr_zones_update_policy ON public.activity_heart_rate_zones FOR UPDATE TO PUBLIC
+USING (user_id = current_user_id());
+
+CREATE POLICY activity_hr_zones_delete_policy ON public.activity_heart_rate_zones FOR DELETE TO PUBLIC
+USING (user_id = current_user_id());
+
+-- Activity Samples table policies
+CREATE POLICY activity_samples_select_policy ON public.activity_samples FOR SELECT TO PUBLIC
+USING (
+    user_id = current_user_id()
+    OR EXISTS (
+        SELECT 1 FROM public.family_access fa
+        WHERE fa.owner_user_id = activity_samples.user_id
+          AND fa.family_user_id = current_user_id()
+          AND fa.is_active = TRUE
+    )
+);
+
+CREATE POLICY activity_samples_insert_policy ON public.activity_samples FOR INSERT TO PUBLIC
+WITH CHECK (user_id = current_user_id());
+
+CREATE POLICY activity_samples_update_policy ON public.activity_samples FOR UPDATE TO PUBLIC
+USING (user_id = current_user_id());
+
+CREATE POLICY activity_samples_delete_policy ON public.activity_samples FOR DELETE TO PUBLIC
+USING (user_id = current_user_id());

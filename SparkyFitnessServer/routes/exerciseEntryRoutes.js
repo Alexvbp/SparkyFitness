@@ -217,6 +217,33 @@ router.get('/history/:exerciseId', authenticate, async (req, res, next) => {
   }
 });
 
+// Endpoint to get progress data for a specific exercise
+// NOTE: This route MUST be before /:id to avoid being caught by the wildcard
+router.get('/progress/:exerciseId', authenticate, async (req, res, next) => {
+  const { exerciseId } = req.params;
+  const { startDate, endDate } = req.query;
+
+  if (!exerciseId) {
+    return res.status(400).json({ error: 'Exercise ID is required.' });
+  }
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Start date and end date are required for progress data.' });
+  }
+
+  try {
+    const progressData = await exerciseService.getExerciseProgressData(req.userId, exerciseId, startDate, endDate);
+    res.status(200).json(progressData);
+  } catch (error) {
+    if (error.message.startsWith('Forbidden')) {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error.message === 'Exercise not found.') {
+      return res.status(404).json({ error: error.message });
+    }
+    next(error);
+  }
+});
+
 // Endpoint to fetch an exercise entry by ID
 router.get('/:id', authenticate, async (req, res, next) => {
   const { id } = req.params;
@@ -293,31 +320,6 @@ router.put('/:id', authenticate, upload.single('image'), async (req, res, next) 
       return res.status(403).json({ error: error.message });
     }
     if (error.message === 'Exercise entry not found or not authorized to update.') {
-      return res.status(404).json({ error: error.message });
-    }
-    next(error);
-  }
-});
-
-router.get('/progress/:exerciseId', authenticate, async (req, res, next) => {
-  const { exerciseId } = req.params;
-  const { startDate, endDate } = req.query;
-
-  if (!exerciseId) {
-    return res.status(400).json({ error: 'Exercise ID is required.' });
-  }
-  if (!startDate || !endDate) {
-    return res.status(400).json({ error: 'Start date and end date are required for progress data.' });
-  }
-
-  try {
-    const progressData = await exerciseService.getExerciseProgressData(req.userId, exerciseId, startDate, endDate);
-    res.status(200).json(progressData);
-  } catch (error) {
-    if (error.message.startsWith('Forbidden')) {
-      return res.status(403).json({ error: error.message });
-    }
-    if (error.message === 'Exercise not found.') {
       return res.status(404).json({ error: error.message });
     }
     next(error);
