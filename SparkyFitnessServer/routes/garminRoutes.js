@@ -66,7 +66,7 @@ function validateDateRange(startDate, endDate) {
 router.post('/login', authenticate, async (req, res, next) => {
     try {
         const userId = req.userId;
-        const { email, password } = req.body;
+        const { email, password, sync_frequency, is_active } = req.body;
         if (!email || !password) {
             return res.status(400).json({ error: 'Email and password are required.' });
         }
@@ -74,7 +74,11 @@ router.post('/login', authenticate, async (req, res, next) => {
         log('info', `Garmin login microservice response for user ${userId}:`, result);
         if (result.status === 'success' && result.tokens) {
             log('info', `Garmin login successful for user ${userId}. Handling tokens...`);
-            const provider = await garminConnectService.handleGarminTokens(userId, result.tokens);
+            const providerOptions = {
+                sync_frequency: sync_frequency || 'manual',
+                is_active: is_active !== undefined ? is_active : true
+            };
+            const provider = await garminConnectService.handleGarminTokens(userId, result.tokens, providerOptions);
             res.status(200).json({ status: 'success', provider: provider });
         } else {
             res.status(200).json(result);
@@ -237,13 +241,12 @@ router.get('/status', authenticate, async (req, res, next) => {
 
         if (provider) {
             // For security, do not send raw tokens to the frontend.
-            // Instead, send status, last updated, and token expiry.
-            // You might also send a masked external_user_id if available and useful for display.
+            // Instead, send status, last updated, token expiry, and last sync time.
             res.status(200).json({
                 isLinked: true,
                 lastUpdated: provider.updated_at,
+                lastSyncAt: provider.last_sync_at,
                 tokenExpiresAt: provider.token_expires_at,
-                // externalUserId: provider.external_user_id ? `${provider.external_user_id.substring(0, 4)}...` : null, // Example masking
                 message: "Garmin Connect is linked."
             });
         } else {

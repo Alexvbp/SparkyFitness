@@ -307,7 +307,7 @@ async function getExternalDataProviderByUserIdAndProviderName(userId, providerNa
       `SELECT
         id, provider_name, provider_type, user_id, sync_frequency, encrypted_app_id, app_id_iv, app_id_tag,
         encrypted_app_key, app_key_iv, app_key_tag,
-        token_expires_at, external_user_id, is_active, base_url, shared_with_public, updated_at,
+        token_expires_at, external_user_id, is_active, base_url, shared_with_public, updated_at, last_sync_at,
         encrypted_garth_dump, garth_dump_iv, garth_dump_tag
       FROM external_data_providers WHERE provider_name = $1`,
       [providerName]
@@ -358,7 +358,8 @@ async function getExternalDataProviderByUserIdAndProviderName(userId, providerNa
       token_expires_at: data.token_expires_at,
       external_user_id: data.external_user_id,
       garth_dump: decryptedGarthDump,
-      updated_at: data.updated_at // Include updated_at
+      updated_at: data.updated_at,
+      last_sync_at: data.last_sync_at
     };
   } finally {
     client.release();

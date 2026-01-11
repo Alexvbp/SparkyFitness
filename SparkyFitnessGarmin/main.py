@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse, JSONResponse
 from urllib.parse import urlencode, parse_qs
 from pydantic import BaseModel
+from typing import Optional
 import uvicorn
 from garminconnect import Garmin
 from garth.exc import GarthHTTPError, GarthException
@@ -949,7 +950,7 @@ class ActivitiesAndWorkoutsRequest(BaseModel):
     tokens: str
     start_date: str
     end_date: str
-    activity_type: str = None
+    activity_type: Optional[str] = None
 
 @app.post("/data/activities_and_workouts")
 async def get_activities_and_workouts(request_data: ActivitiesAndWorkoutsRequest):

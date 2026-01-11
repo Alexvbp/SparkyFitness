@@ -26,7 +26,7 @@ export interface ExternalDataProvider {
   sync_frequency?: 'hourly' | 'daily' | 'manual';
   has_token?: boolean;
   garmin_connect_status?: 'linked' | 'connected' | 'disconnected';
-  garmin_last_status_check?: string;
+  garmin_last_sync_at?: string;
   garmin_token_expires?: string;
   withings_last_sync_at?: string;
   withings_token_expires?: string;
@@ -62,7 +62,7 @@ const ExternalProviderSettings = () => {
               ...provider,
               provider_type: provider.provider_type as ExternalDataProvider['provider_type'],
               garmin_connect_status: garminStatus.isLinked ? 'linked' : 'disconnected',
-              garmin_last_status_check: garminStatus.lastUpdated,
+              garmin_last_sync_at: garminStatus.lastSyncAt,
               garmin_token_expires: garminStatus.tokenExpiresAt,
             };
           } catch (garminError) {
@@ -147,7 +147,7 @@ const ExternalProviderSettings = () => {
       base_url: (editData.provider_type === 'mealie' || editData.provider_type === 'tandoor' || editData.provider_type === 'free-exercise-db') ? editData.base_url || null : null,
       sync_frequency: (editData.provider_type === 'withings' || editData.provider_type === 'garmin') ? editData.sync_frequency : null,
       garmin_connect_status: editData.provider_type === 'garmin' ? editData.garmin_connect_status : null,
-      garmin_last_status_check: editData.provider_type === 'garmin' ? editData.garmin_last_status_check : null,
+      garmin_last_sync_at: editData.provider_type === 'garmin' ? editData.garmin_last_sync_at : null,
       garmin_token_expires: editData.provider_type === 'garmin' ? editData.garmin_token_expires : null,
       withings_last_sync_at: editData.provider_type === 'withings' ? editData.withings_last_sync_at : null,
       withings_token_expires: editData.provider_type === 'withings' ? editData.withings_token_expires : null,
@@ -420,7 +420,7 @@ const ExternalProviderSettings = () => {
       last_sync_at: provider.last_sync_at || null,
       sync_frequency: provider.sync_frequency || 'manual',
       garmin_connect_status: provider.garmin_connect_status || 'disconnected',
-      garmin_last_status_check: provider.garmin_last_status_check || '',
+      garmin_last_sync_at: provider.garmin_last_sync_at || '',
       garmin_token_expires: provider.garmin_token_expires || '',
       withings_last_sync_at: provider.withings_last_sync_at || '',
       withings_token_expires: provider.withings_token_expires || '',

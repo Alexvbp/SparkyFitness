@@ -37,7 +37,7 @@ async function garminResumeLogin(userId, clientState, mfaCode) {
     }
 }
 
-async function handleGarminTokens(userId, tokensB64) {
+async function handleGarminTokens(userId, tokensB64, providerOptions = {}) {
     try {
         // Decode the base64 tokens string to get the actual tokens object
         // The tokensB64 is the full garth.dumps() output, which is a base64 encoded string of a JSON array.
@@ -76,7 +76,8 @@ async function handleGarminTokens(userId, tokensB64) {
             provider_name: 'garmin',
             provider_type: 'garmin', // Changed to 'garmin' as per user's request
             user_id: userId,
-            is_active: true,
+            is_active: providerOptions.is_active !== undefined ? providerOptions.is_active : true,
+            sync_frequency: providerOptions.sync_frequency || 'manual',
             base_url: 'https://connect.garmin.com', // Garmin Connect base URL
 
             encrypted_garth_dump: encryptedGarthDump.encryptedText,
@@ -162,13 +163,17 @@ async function fetchGarminActivitiesAndWorkouts(userId, startDate, endDate, acti
         const decryptedGarthDump = provider.garth_dump;
         log('debug', `fetchGarminActivitiesAndWorkouts: Sending decrypted Garth dump (masked) to microservice: ${decryptedGarthDump ? decryptedGarthDump.substring(0, 30) + '...' : 'N/A'}`);
         
-        const response = await axios.post(`${GARMIN_MICROSERVICE_URL}/data/activities_and_workouts`, {
+        const requestBody = {
             user_id: userId,
             tokens: decryptedGarthDump,
             start_date: startDate,
             end_date: endDate,
-            activity_type: activityType
-        }, {
+        };
+        // Only include activity_type if it's not null/undefined
+        if (activityType) {
+            requestBody.activity_type = activityType;
+        }
+        const response = await axios.post(`${GARMIN_MICROSERVICE_URL}/data/activities_and_workouts`, requestBody, {
             timeout: 120000 // 2 minutes timeout
         });
 

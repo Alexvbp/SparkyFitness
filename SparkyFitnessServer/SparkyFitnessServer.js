@@ -62,6 +62,7 @@ const { performBackup, applyRetentionPolicy } = require('./services/backupServic
 const externalProviderRepository = require('./models/externalProviderRepository'); // Import externalProviderRepository
 const withingsService = require('./integrations/withings/withingsService'); // Import withingsService
 const garminConnectService = require('./integrations/garminconnect/garminConnectService'); // Import garminConnectService
+const garminService = require('./services/garminService'); // Import garminService for processing
 
 const app = express();
 const PORT = process.env.SPARKY_FITNESS_SERVER_PORT || 3010;
@@ -415,26 +416,55 @@ const scheduleWithingsSyncs = async () => {
 
 // Function to schedule Garmin data synchronization
 const scheduleGarminSyncs = async () => {
-  cron.schedule("0 * * * *", async () => { // Run every hour
-    log("info", "Scheduled Garmin data sync initiated.");
+  // Helper function to perform Garmin sync for a user (health, wellness, sleep, and activities)
+  const performGarminSync = async (userId, startDate, endDate) => {
+    // 1. Sync health and wellness data
+    const healthWellnessData = await garminConnectService.syncGarminHealthAndWellness(userId, startDate, endDate, []);
+
+    // Process the health and wellness data
+    if (healthWellnessData && healthWellnessData.data) {
+      await garminService.processGarminHealthAndWellnessData(userId, userId, healthWellnessData.data, startDate, endDate);
+
+      // Process sleep data if available
+      if (healthWellnessData.data.sleep && healthWellnessData.data.sleep.length > 0) {
+        await garminService.processGarminSleepData(userId, userId, healthWellnessData.data.sleep, startDate, endDate);
+      }
+    }
+
+    // 2. Sync activities and workouts
+    const activitiesData = await garminConnectService.fetchGarminActivitiesAndWorkouts(userId, startDate, endDate, null);
+
+    // Process activities and workouts
+    if (activitiesData) {
+      await garminService.processActivitiesAndWorkouts(userId, activitiesData, startDate, endDate);
+    }
+  };
+
+  cron.schedule("0 * * * *", async () => { // Run every hour at minute 0
+    log("info", "Scheduled hourly Garmin data sync initiated.");
     try {
       const providers = await externalProviderRepository.getProvidersByType('garmin');
       for (const provider of providers) {
         if (provider.is_active && provider.sync_frequency === 'hourly') {
           const userId = provider.user_id;
-          const createdByUserId = userId;
           const lastSyncAt = provider.last_sync_at ? new Date(provider.last_sync_at) : new Date(0);
           const now = new Date();
 
           if ((now.getTime() - lastSyncAt.getTime()) >= (60 * 60 * 1000)) {
             log('info', `Hourly Garmin sync for user ${userId}`);
-            await garminConnectService.syncGarminHealthAndWellness(userId, now.toISOString().split('T')[0], now.toISOString().split('T')[0], []);
-            await externalProviderRepository.updateProviderLastSync(provider.id, now);
+            const todayStr = now.toISOString().split('T')[0];
+            try {
+              await performGarminSync(userId, todayStr, todayStr);
+              await externalProviderRepository.updateProviderLastSync(provider.id, now);
+              log('info', `Hourly Garmin sync completed for user ${userId}`);
+            } catch (syncError) {
+              log('error', `Hourly Garmin sync failed for user ${userId}: ${syncError.message}`);
+            }
           }
         }
       }
     } catch (error) {
-      log('error', `Error during scheduled Garmin data sync: ${error.message}`);
+      log('error', `Error during scheduled hourly Garmin data sync: ${error.message}`);
     }
   });
 
@@ -445,19 +475,24 @@ const scheduleGarminSyncs = async () => {
       for (const provider of providers) {
         if (provider.is_active && provider.sync_frequency === 'daily') {
           const userId = provider.user_id;
-          const createdByUserId = userId;
           const lastSyncAt = provider.last_sync_at ? new Date(provider.last_sync_at) : new Date(0);
           const now = new Date();
 
           if (now.getDate() !== lastSyncAt.getDate() || now.getMonth() !== lastSyncAt.getMonth() || now.getFullYear() !== lastSyncAt.getFullYear()) {
             log('info', `Daily Garmin sync for user ${userId}`);
-            await garminConnectService.syncGarminHealthAndWellness(userId, now.toISOString().split('T')[0], now.toISOString().split('T')[0], []);
-            await externalProviderRepository.updateProviderLastSync(provider.id, now);
+            const todayStr = now.toISOString().split('T')[0];
+            try {
+              await performGarminSync(userId, todayStr, todayStr);
+              await externalProviderRepository.updateProviderLastSync(provider.id, now);
+              log('info', `Daily Garmin sync completed for user ${userId}`);
+            } catch (syncError) {
+              log('error', `Daily Garmin sync failed for user ${userId}: ${syncError.message}`);
+            }
           }
         }
       }
     } catch (error) {
-      log('error', `Error during scheduled Garmin data sync: ${error.message}`);
+      log('error', `Error during scheduled daily Garmin data sync: ${error.message}`);
     }
   });
 

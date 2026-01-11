@@ -72,7 +72,7 @@ const ExternalProviderList: React.FC<ExternalProviderListProps> = ({
                   <Label>Provider Type</Label>
                   <Select
                     value={editData.provider_type || ''}
-                    onValueChange={(value) => setEditData(prev => ({ ...prev, provider_type: value as ExternalDataProvider['provider_type'], app_id: '', app_key: '', base_url: '', garmin_connect_status: 'disconnected', garmin_last_status_check: '', garmin_token_expires: '' }))}
+                    onValueChange={(value) => setEditData(prev => ({ ...prev, provider_type: value as ExternalDataProvider['provider_type'], app_id: '', app_key: '', base_url: '', garmin_connect_status: 'disconnected', garmin_last_sync_at: '', garmin_token_expires: '' }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -460,10 +460,13 @@ const ExternalProviderList: React.FC<ExternalProviderListProps> = ({
               </div>
               {provider.provider_type === 'garmin' && (provider.garmin_connect_status === 'linked' || provider.garmin_connect_status === 'connected') && (
                 <div className="text-sm text-muted-foreground">
-                  {provider.garmin_last_status_check && (
-                    <span>Last Status Check: {new Date(provider.garmin_last_status_check).toLocaleString()}</span>
+                  {provider.garmin_last_sync_at && (
+                    <span>Last Sync: {new Date(provider.garmin_last_sync_at).toLocaleString()}</span>
                   )}
-                  {provider.garmin_last_status_check && provider.garmin_token_expires && <span> | </span>}
+                  {!provider.garmin_last_sync_at && (
+                    <span>Last Sync: Never</span>
+                  )}
+                  {provider.garmin_token_expires && <span> | </span>}
                   {provider.garmin_token_expires && (
                     <span>Token Expires: {new Date(provider.garmin_token_expires).toLocaleString()}</span>
                   )}

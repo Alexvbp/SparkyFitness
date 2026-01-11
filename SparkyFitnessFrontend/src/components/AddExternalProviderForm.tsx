@@ -40,7 +40,7 @@ const AddExternalProviderForm: React.FC<AddExternalProviderFormProps> = ({
     base_url: '',
     sync_frequency: 'manual' as 'hourly' | 'daily' | 'manual',
     garmin_connect_status: 'disconnected' as ExternalDataProvider['garmin_connect_status'],
-    garmin_last_status_check: '',
+    garmin_last_sync_at: '',
     garmin_token_expires: '',
   });
 
@@ -113,6 +113,8 @@ const AddExternalProviderForm: React.FC<AddExternalProviderFormProps> = ({
            body: JSON.stringify({
              email: newProvider.app_id, // Use app_id as email
              password: newProvider.app_key, // Use app_key as password
+             sync_frequency: newProvider.sync_frequency || 'manual',
+             is_active: newProvider.is_active,
            }),
          });
          // If Garmin login is successful, we need to create an external provider entry
@@ -167,7 +169,7 @@ const AddExternalProviderForm: React.FC<AddExternalProviderFormProps> = ({
          base_url: '',
          sync_frequency: 'manual',
          garmin_connect_status: 'disconnected',
-         garmin_last_status_check: '',
+         garmin_last_sync_at: '',
          garmin_token_expires: '',
        });
        onAddSuccess();
@@ -213,7 +215,7 @@ const AddExternalProviderForm: React.FC<AddExternalProviderFormProps> = ({
                <Label htmlFor="new_provider_type">Provider Type</Label>
                <Select
                  value={newProvider.provider_type}
-                 onValueChange={(value) => setNewProvider(prev => ({ ...prev, provider_type: value as ExternalDataProvider['provider_type'], app_id: '', app_key: '', base_url: '', garmin_connect_status: 'disconnected', garmin_last_status_check: '', garmin_token_expires: '' }))}
+                 onValueChange={(value) => setNewProvider(prev => ({ ...prev, provider_type: value as ExternalDataProvider['provider_type'], app_id: '', app_key: '', base_url: '', garmin_connect_status: 'disconnected', garmin_last_sync_at: '', garmin_token_expires: '' }))}
                >
                  <SelectTrigger>
                    <SelectValue />
